@@ -46,9 +46,9 @@ MARGEN_ENCUADRE = 0
 def factor_sentido(sentido):
     s = str(sentido).strip().lower()
     if s == "derecha":
-        return -1.0
-    if s == "izquierda":
         return 1.0
+    if s == "izquierda":
+        return -1.0
     raise ValueError('SENTIDO_GIRO debe ser "derecha" o "izquierda".')
 
 
@@ -308,7 +308,6 @@ def generar_html(sentido_giro="izquierda", salida=None, angulo_final=None):
 if __name__ == "__main__":
     salida = generar_html(sentido_giro=SENTIDO_GIRO)
     print(salida)
-
 
 
 
