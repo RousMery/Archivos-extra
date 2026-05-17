@@ -1,0 +1,65 @@
+﻿:root {
+  --bg: #f4f7f2;
+  --card: #ffffff;
+  --text: #163326;
+  --accent: #2f7f56;
+  --accent-hover: #256647;
+  --border: #d8e4dc;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+  background: radial-gradient(circle at 20% 10%, #e8f5ec 0%, var(--bg) 42%, #eff3f8 100%);
+  color: var(--text);
+}
+
+.card {
+  width: min(1100px, 96vw);
+  margin: 20px auto;
+  padding: 20px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+}
+
+h1 { margin: 0 0 8px 0; }
+
+.controls {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+  margin: 14px 0;
+}
+
+select, button {
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: 1px solid #b8cfc1;
+  font-size: 15px;
+}
+
+button {
+  background: var(--accent);
+  color: white;
+  cursor: pointer;
+  border-color: var(--accent);
+}
+
+button:hover { background: var(--accent-hover); }
+
+.estado {
+  min-height: 22px;
+  font-weight: 600;
+}
+
+iframe {
+  width: 100%;
+  height: 72vh;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: white;
+}

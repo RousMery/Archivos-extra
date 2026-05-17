@@ -1,0 +1,31 @@
+﻿<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Bouligand Fibras</title>
+    <link rel="stylesheet" href="/static/styles.css" />
+  </head>
+  <body>
+    <main class="card">
+      <h1>Bouligand Fibras</h1>
+      <p>Selecciona el sentido de giro y genera la vista 3D.</p>
+
+      <form id="form" class="controls">
+        <label for="sentido">Sentido</label>
+        <select id="sentido" name="sentido">
+          <option value="izquierda">Izquierda (levogira)</option>
+          <option value="derecha">Derecha (dextrogira)</option>
+        </select>
+        <label for="angulo_final">Angulo final</label>
+        <input id="angulo_final" name="angulo_final" type="number" value="180" step="1" />
+        <button type="submit">Generar</button>
+      </form>
+
+      <p id="estado" class="estado"></p>
+      <iframe id="viewer" title="Vista Bouligand"></iframe>
+    </main>
+
+    <script src="/static/app.js"></script>
+  </body>
+</html>
