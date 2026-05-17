@@ -26,7 +26,10 @@ def generar():
         return jsonify({"ok": False, "error": "Angulo invalido"}), 400
 
     salida = OUTPUTS_DIR / "cilindro.html"
-    generar_html(sentido_giro=sentido, salida=salida, angulo_final=angulo_final)
+    try:
+        generar_html(sentido_giro=sentido, salida=salida, angulo_final=angulo_final)
+    except Exception as exc:
+        return jsonify({"ok": False, "error": f"Error generando figura: {exc}"}), 500
     return jsonify({"ok": True, "viewer_url": "/outputs/cilindro.html"})
 
 

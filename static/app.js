@@ -11,10 +11,15 @@ async function generar(sentido, anguloFinal) {
     body: JSON.stringify({ sentido, angulo_final: anguloFinal })
   });
 
-  const data = await res.json();
-  if (!res.ok || !data.ok) {
-    throw new Error(data.error || "No se pudo generar la figura.");
+  const contentType = res.headers.get("content-type") || "";
+  let data;
+  if (contentType.includes("application/json")) {
+    data = await res.json();
+  } else {
+    const txt = await res.text();
+    throw new Error(`Respuesta invalida del servidor: ${txt.slice(0, 140)}`);
   }
+  if (!res.ok || !data.ok) throw new Error(data.error || "No se pudo generar la figura.");
 
   viewer.src = `${data.viewer_url}?t=${Date.now()}`;
   estado.textContent = "Figura actualizada.";
