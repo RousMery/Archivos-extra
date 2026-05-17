@@ -2,7 +2,7 @@
 
 from flask import Flask, jsonify, render_template, request, send_from_directory
 
-from bouligandfibras import generar_html
+from bouligand3D import generar_html
 
 app = Flask(__name__)
 OUTPUTS_DIR = Path(__file__).parent / "outputs"
