@@ -7,10 +7,12 @@ LARGO_CILINDRO = 4.0  # Longitud de cada fibra (eje local x)
 ANCHO_CAPA = 4.0  # Ancho total ocupado por una capa en y
 N_CILINDROS = 25  # Fibras por capa
 SEPARACION_LATERAL = 0.01  # Separacion extra entre fibras vecinas
+SEPARACION_CAPAS = 0.018  # Separacion vertical extra entre capas
 
-N_CAPAS = 40  # Numero de capas apiladas 
+N_CAPAS = 40  # Numero de capas apiladas
 ANGULO_FINAL = 180  # Giro acumulado de la ultima capa (grados)
-SENTIDO_GIRO = "izquierda"  # "izquierda" o "derecha"
+SENTIDO_GIRO = "derecha"  # "izquierda" o "derecha"
+MODO_ESTRUCTURA = "capas_planas"  # "fibras" o "capas_planas"
 
 COLOR_FIBRA = "#6DD17A"
 MODO_COLOR = "automatico"  # "automatico" o "fijo"
@@ -41,6 +43,10 @@ FRESNEL = 0.0
 
 PROYECCION = "perspective"  # "orthographic" o "perspective"
 MARGEN_ENCUADRE = 0
+FACTOR_PLANO_OSCURO = 0.68
+FACTOR_PLANO_CLARO = 1.03
+FACTOR_PLANO_TAPA_X0 = 0.90
+FACTOR_PLANO_TAPA_X1 = 0.78
 
 
 def factor_sentido(sentido):
@@ -50,6 +56,13 @@ def factor_sentido(sentido):
     if s == "izquierda":
         return -1.0
     raise ValueError('SENTIDO_GIRO debe ser "derecha" o "izquierda".')
+
+
+def validar_modo_estructura(modo):
+    m = str(modo).strip().lower()
+    if m not in {"fibras", "capas_planas"}:
+        raise ValueError('MODO_ESTRUCTURA debe ser "fibras" o "capas_planas".')
+    return m
 
 
 def rotar_xy(x, y, ang_deg):
@@ -157,17 +170,69 @@ def agregar_cilindro_mesh(vertices, vcolors, tris, x0, x1, yc, zc, r, ang_deg, s
     tris.extend((tri_base + base).tolist())
 
 
-def generar_figura(sentido_giro="izquierda", angulo_final=None):
+def agregar_capa_paralelepipedo_mesh(vertices, vcolors, tris, x0, x1, y_half, z0, z1, ang_deg):
+    base = len(vertices)
+
+    corners = np.array(
+        [
+            [x0, -y_half, z0],
+            [x1, -y_half, z0],
+            [x1, y_half, z0],
+            [x0, y_half, z0],
+            [x0, -y_half, z1],
+            [x1, -y_half, z1],
+            [x1, y_half, z1],
+            [x0, y_half, z1],
+        ],
+        dtype=float,
+    )
+
+    xr, yr = rotar_xy(corners[:, 0], corners[:, 1], ang_deg)
+    corners[:, 0] = xr
+    corners[:, 1] = yr
+    vertices.extend(corners.tolist())
+
+    c_oscuro = escalar_color(COLOR_FIBRA, FACTOR_PLANO_OSCURO)
+    c_claro = escalar_color(COLOR_FIBRA, FACTOR_PLANO_CLARO)
+    c_tapa0 = escalar_color(COLOR_FIBRA, FACTOR_PLANO_TAPA_X0)
+    c_tapa1 = escalar_color(COLOR_FIBRA, FACTOR_PLANO_TAPA_X1)
+
+    # Colores por vertice (lado inferior/superior, lados largos y tapas en x).
+    vcolors.extend([c_oscuro, c_oscuro, c_claro, c_claro, c_oscuro, c_oscuro, c_claro, c_claro])
+
+    caras = [
+        (0, 1, 2), (0, 2, 3),
+        (4, 6, 5), (4, 7, 6),
+        (0, 4, 5), (0, 5, 1),
+        (1, 5, 6), (1, 6, 2),
+        (2, 6, 7), (2, 7, 3),
+        (3, 7, 4), (3, 4, 0),
+    ]
+    tris.extend([(a + base, b + base, c + base) for (a, b, c) in caras])
+    return corners
+
+def append_box_edges(edge_x, edge_y, edge_z, corners):
+    edges = [
+        (0, 1), (1, 2), (2, 3), (3, 0),
+        (4, 5), (5, 6), (6, 7), (7, 4),
+        (0, 4), (1, 5), (2, 6), (3, 7),
+    ]
+    for a, b in edges:
+        edge_x.extend([corners[a, 0], corners[b, 0], None])
+        edge_y.extend([corners[a, 1], corners[b, 1], None])
+        edge_z.extend([corners[a, 2], corners[b, 2], None])
+
+def generar_figura(sentido_giro="izquierda", angulo_final=None, modo_estructura=None):
     sentido = factor_sentido(sentido_giro)
     angulo_objetivo = ANGULO_FINAL if angulo_final is None else float(angulo_final)
+    modo = validar_modo_estructura(MODO_ESTRUCTURA if modo_estructura is None else modo_estructura)
 
     n_cil = max(1, int(N_CILINDROS))
     n_stack = max(1, int(N_CAPAS))
 
     diametro = ANCHO_CAPA / n_cil
     radio = diametro / 2.0
-    grosor_capa_ajustado = diametro
-    altura_total = n_stack * grosor_capa_ajustado
+    grosor_capa_ajustado = diametro + max(0.0, SEPARACION_CAPAS)
     paso_lateral = diametro + max(0.0, SEPARACION_LATERAL)
     ancho_util = n_cil * diametro + (n_cil - 1) * max(0.0, SEPARACION_LATERAL)
 
@@ -176,6 +241,7 @@ def generar_figura(sentido_giro="izquierda", angulo_final=None):
 
     vertices, vcolors, triangulos = [], [], []
     base_x, base_y, base_z = [], [], []
+    edge_x, edge_y, edge_z = [], [], []
 
     th_closed = np.linspace(0.0, 2.0 * np.pi, RES_CIRCULO + 1)
     th = np.linspace(0.0, 2.0 * np.pi, RES_CIRCULO, endpoint=False)
@@ -191,32 +257,39 @@ def generar_figura(sentido_giro="izquierda", angulo_final=None):
             ang_base = (angulo_objetivo * i) / (n_stack - 1)
         ang_i = sentido * ang_base
 
-        for j in range(n_cil):
-            yc = y_inicio + j * paso_lateral
+        if modo == "fibras":
+            for j in range(n_cil):
+                yc = y_inicio + j * paso_lateral
 
-            agregar_cilindro_mesh(
-                vertices,
-                vcolors,
-                triangulos,
-                x0,
-                x1,
-                yc,
-                z_centro_capa,
-                radio,
-                ang_i,
-                side_colors,
-                tri_base,
-                RES_CIRCULO,
-            )
+                agregar_cilindro_mesh(
+                    vertices,
+                    vcolors,
+                    triangulos,
+                    x0,
+                    x1,
+                    yc,
+                    z_centro_capa,
+                    radio,
+                    ang_i,
+                    side_colors,
+                    tri_base,
+                    RES_CIRCULO,
+                )
 
-            yb = yc + radio * np.cos(th_closed)
-            zb = z_centro_capa + radio * np.sin(th_closed)
-            xb0 = np.full_like(th_closed, x0)
-            xb1 = np.full_like(th_closed, x1)
-            xb0r, yb0r = rotar_xy(xb0, yb, ang_i)
-            xb1r, yb1r = rotar_xy(xb1, yb, ang_i)
-            append_polyline(base_x, base_y, base_z, xb0r, yb0r, zb)
-            append_polyline(base_x, base_y, base_z, xb1r, yb1r, zb)
+                yb = yc + radio * np.cos(th_closed)
+                zb = z_centro_capa + radio * np.sin(th_closed)
+                xb0 = np.full_like(th_closed, x0)
+                xb1 = np.full_like(th_closed, x1)
+                xb0r, yb0r = rotar_xy(xb0, yb, ang_i)
+                xb1r, yb1r = rotar_xy(xb1, yb, ang_i)
+                append_polyline(base_x, base_y, base_z, xb0r, yb0r, zb)
+                append_polyline(base_x, base_y, base_z, xb1r, yb1r, zb)
+        else:
+            z0 = z_centro_capa - radio
+            z1 = z_centro_capa + radio
+            y_half = ancho_util / 2.0
+            corners = agregar_capa_paralelepipedo_mesh(vertices, vcolors, triangulos, x0, x1, y_half, z0, z1, ang_i)
+            append_box_edges(edge_x, edge_y, edge_z, corners)
 
     v = np.array(vertices)
     tri = np.array(triangulos)
@@ -248,17 +321,32 @@ def generar_figura(sentido_giro="izquierda", angulo_final=None):
         )
     )
 
-    fig.add_trace(
-        go.Scatter3d(
-            x=base_x,
-            y=base_y,
-            z=base_z,
-            mode="lines",
-            line=dict(color=base_color, width=BASE_CONTORNO_WIDTH),
-            hoverinfo="skip",
-            showlegend=False,
+    if base_x:
+        fig.add_trace(
+            go.Scatter3d(
+                x=base_x,
+                y=base_y,
+                z=base_z,
+                mode="lines",
+                line=dict(color=base_color, width=BASE_CONTORNO_WIDTH),
+                hoverinfo="skip",
+                showlegend=False,
+            )
         )
-    )
+
+    if edge_x:
+        fig.add_trace(
+            go.Scatter3d(
+                x=edge_x,
+                y=edge_y,
+                z=edge_z,
+                mode="lines",
+                line=dict(color=base_color, width=BASE_CONTORNO_WIDTH),
+                hoverinfo="skip",
+                showlegend=False,
+            )
+        )
+
     x_min, x_max = float(v[:, 0].min()), float(v[:, 0].max())
     y_min, y_max = float(v[:, 1].min()), float(v[:, 1].max())
     z_min, z_max = float(v[:, 2].min()), float(v[:, 2].max())
@@ -271,7 +359,6 @@ def generar_figura(sentido_giro="izquierda", angulo_final=None):
     y_span = max(y_max - y_min, 1e-6)
     z_span = max(z_max - z_min, 1e-6)
 
-    # Caja cubica de encuadre: asegura que toda la estructura entre completa
     half = 0.5 * max(x_span, y_span, z_span) * (1.0 + MARGEN_ENCUADRE)
 
     fig.update_layout(
@@ -295,8 +382,8 @@ def generar_figura(sentido_giro="izquierda", angulo_final=None):
     return fig
 
 
-def generar_html(sentido_giro="izquierda", salida=None, angulo_final=None):
-    fig = generar_figura(sentido_giro=sentido_giro, angulo_final=angulo_final)
+def generar_html(sentido_giro="izquierda", salida=None, angulo_final=None, modo_estructura=None):
+    fig = generar_figura(sentido_giro=sentido_giro, angulo_final=angulo_final, modo_estructura=modo_estructura)
     if salida is None:
         salida = Path.home() / "Desktop" / "bouligand3D.html"
     salida = Path(salida)
@@ -306,8 +393,11 @@ def generar_html(sentido_giro="izquierda", salida=None, angulo_final=None):
 
 
 if __name__ == "__main__":
-    salida = generar_html(sentido_giro=SENTIDO_GIRO)
+    salida = generar_html(sentido_giro=SENTIDO_GIRO, modo_estructura=MODO_ESTRUCTURA)
     print(salida)
+
+
+
 
 
 

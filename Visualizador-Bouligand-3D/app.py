@@ -17,9 +17,12 @@ def home():
 def generar():
     data = request.get_json(silent=True) or {}
     sentido = str(data.get("sentido", "izquierda")).strip().lower()
+    modo_estructura = str(data.get("modo_estructura", "fibras")).strip().lower()
     angulo_final = data.get("angulo_final", 180)
     if sentido not in {"derecha", "izquierda"}:
         return jsonify({"ok": False, "error": "Sentido invalido"}), 400
+    if modo_estructura not in {"fibras", "capas_planas"}:
+        return jsonify({"ok": False, "error": "Modo de capas invalido"}), 400
     try:
         angulo_final = float(angulo_final)
     except (TypeError, ValueError):
@@ -27,7 +30,12 @@ def generar():
 
     salida = OUTPUTS_DIR / "bouligand3D.html"
     try:
-        generar_html(sentido_giro=sentido, salida=salida, angulo_final=angulo_final)
+        generar_html(
+            sentido_giro=sentido,
+            salida=salida,
+            angulo_final=angulo_final,
+            modo_estructura=modo_estructura,
+        )
     except Exception as exc:
         return jsonify({"ok": False, "error": f"Error generando figura: {exc}"}), 500
     return jsonify({"ok": True, "viewer_url": "/outputs/bouligand3D.html"})

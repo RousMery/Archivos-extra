@@ -2,13 +2,13 @@
 const estado = document.getElementById("estado");
 const viewer = document.getElementById("viewer");
 
-async function generar(sentido, anguloFinal) {
+async function generar(modoEstructura, sentido, anguloFinal) {
   estado.textContent = "Generando...";
 
   const res = await fetch("/generar", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ sentido, angulo_final: anguloFinal })
+    body: JSON.stringify({ modo_estructura: modoEstructura, sentido, angulo_final: anguloFinal })
   });
 
   const contentType = res.headers.get("content-type") || "";
@@ -27,16 +27,17 @@ async function generar(sentido, anguloFinal) {
 
 form.addEventListener("submit", async (event) => {
   event.preventDefault();
+  const modoEstructura = document.getElementById("modo_estructura").value;
   const sentido = document.getElementById("sentido").value;
   const anguloFinal = document.getElementById("angulo_final").value;
 
   try {
-    await generar(sentido, anguloFinal);
+    await generar(modoEstructura, sentido, anguloFinal);
   } catch (error) {
     estado.textContent = error.message;
   }
 });
 
-generar("izquierda", 180).catch((error) => {
+generar("fibras", "izquierda", 180).catch((error) => {
   estado.textContent = error.message;
 });
