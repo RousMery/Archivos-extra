@@ -3,9 +3,6 @@ from pathlib import Path
 import plotly.graph_objects as go
 from matplotlib.colors import to_rgb
 
-# ============================================================
-# PARAMETROS AJUSTABLES
-# ============================================================
 LARGO_CILINDRO = 4.0
 ANCHO_CAPA = 4.0
 N_CILINDROS = 20
@@ -13,7 +10,7 @@ SEPARACION_LATERAL = 0.01
 
 N_CAPAS = 30
 ANGULO_FINAL = 360
-SENTIDO_GIRO = "izquierda"  # "derecha" o "izquierda"
+SENTIDO_GIRO = "izquierda"
 
 COLOR_FIBRA = "#6DD17A"
 MODO_COLOR = "automatico"  # "automatico" o "fijo"
@@ -21,8 +18,6 @@ COLOR_SOMBRA_FIJA = "#104242"
 COLOR_LUZ_FIJA = "#6DD17A"
 COLOR_TAPA_X0_FIJA = "#6DD17A"
 COLOR_TAPA_X1_FIJA = "#104242"
-MESH_FACTOR = 0.70
-MESH_WIDTH = 2
 BASE_CONTORNO_FACTOR = 0.18
 BASE_CONTORNO_WIDTH = 3
 
@@ -33,8 +28,7 @@ FACTOR_LATERAL_OSCURO = 0.0
 DESFASE_SOMBRA_GRADOS = 22.0
 SUAVIDAD_SOMBRA = 1.15
 
-RES_CIRCULO = 36
-N_GENERATRICES = 18
+RES_CIRCULO = 24
 
 LUZ_X = 0.0
 LUZ_Y = 0.0
@@ -52,6 +46,7 @@ CAM_UP_X = 0.0
 CAM_UP_Y = 0.0
 CAM_UP_Z = 1.0
 PROYECCION = "orthographic"  # "orthographic" o "perspective"
+CAM_ENCUADRE_FACTOR = 1.35
 
 
 def factor_sentido(sentido):
@@ -105,7 +100,26 @@ def append_polyline(xs, ys, zs, x, y, z):
     zs.append(None)
 
 
-def agregar_cilindro_mesh(vertices, vcolors, tris, x0, x1, yc, zc, r, ang_deg, nseg=36):
+def topologia_cilindro(nseg):
+    caras = []
+    for k in range(nseg):
+        kn = (k + 1) % nseg
+        caras.append((k, kn, nseg + k))
+        caras.append((kn, nseg + kn, nseg + k))
+    i_ring0_cap = 2 * nseg
+    i_ring1_cap = 3 * nseg
+    i_c0 = 4 * nseg
+    i_c1 = 4 * nseg + 1
+    for k in range(nseg):
+        kn = (k + 1) % nseg
+        caras.append((i_c0, i_ring0_cap + kn, i_ring0_cap + k))
+    for k in range(nseg):
+        kn = (k + 1) % nseg
+        caras.append((i_c1, i_ring1_cap + k, i_ring1_cap + kn))
+    return np.array(caras, dtype=int)
+
+
+def agregar_cilindro_mesh(vertices, vcolors, tris, x0, x1, yc, zc, r, ang_deg, side_colors, tri_base, nseg=36):
     base = len(vertices)
     th = np.linspace(0.0, 2.0 * np.pi, nseg, endpoint=False)
 
@@ -138,40 +152,15 @@ def agregar_cilindro_mesh(vertices, vcolors, tris, x0, x1, yc, zc, r, ang_deg, n
         tapa0 = escalar_color(COLOR_FIBRA, FACTOR_TAPA_X0)
         tapa1 = escalar_color(COLOR_FIBRA, FACTOR_TAPA_X1)
 
-    for ang in th:
-        vcolors.append(color_lateral_por_angulo(ang))
-    for ang in th:
-        vcolors.append(color_lateral_por_angulo(ang))
+    vcolors.extend(side_colors)
+    vcolors.extend(side_colors)
     for _ in th:
         vcolors.append(tapa0)
     for _ in th:
         vcolors.append(tapa1)
     vcolors.append(tapa0)
     vcolors.append(tapa1)
-
-    i_ring0_side = base
-    i_ring1_side = base + nseg
-    i_ring0_cap = base + 2 * nseg
-    i_ring1_cap = base + 3 * nseg
-    i_c0 = base + 4 * nseg
-    i_c1 = base + 4 * nseg + 1
-
-    for k in range(nseg):
-        kn = (k + 1) % nseg
-        a = i_ring0_side + k
-        b = i_ring0_side + kn
-        c = i_ring1_side + k
-        d = i_ring1_side + kn
-        tris.append((a, b, c))
-        tris.append((b, d, c))
-
-    for k in range(nseg):
-        kn = (k + 1) % nseg
-        tris.append((i_c0, i_ring0_cap + kn, i_ring0_cap + k))
-
-    for k in range(nseg):
-        kn = (k + 1) % nseg
-        tris.append((i_c1, i_ring1_cap + k, i_ring1_cap + kn))
+    tris.extend((tri_base + base).tolist())
 
 
 def generar_figura(sentido_giro="izquierda", angulo_final=None):
@@ -195,6 +184,9 @@ def generar_figura(sentido_giro="izquierda", angulo_final=None):
     base_x, base_y, base_z = [], [], []
 
     th_closed = np.linspace(0.0, 2.0 * np.pi, RES_CIRCULO + 1)
+    th = np.linspace(0.0, 2.0 * np.pi, RES_CIRCULO, endpoint=False)
+    side_colors = [color_lateral_por_angulo(ang) for ang in th]
+    tri_base = topologia_cilindro(RES_CIRCULO)
 
     for i in range(n_stack):
         z_centro_capa = i * grosor_capa_ajustado + radio
@@ -208,7 +200,20 @@ def generar_figura(sentido_giro="izquierda", angulo_final=None):
         for j in range(n_cil):
             yc = y_inicio + j * paso_lateral
 
-            agregar_cilindro_mesh(vertices, vcolors, triangulos, x0, x1, yc, z_centro_capa, radio, ang_i, RES_CIRCULO)
+            agregar_cilindro_mesh(
+                vertices,
+                vcolors,
+                triangulos,
+                x0,
+                x1,
+                yc,
+                z_centro_capa,
+                radio,
+                ang_i,
+                side_colors,
+                tri_base,
+                RES_CIRCULO,
+            )
 
             yb = yc + radio * np.cos(th_closed)
             zb = z_centro_capa + radio * np.sin(th_closed)
@@ -261,9 +266,14 @@ def generar_figura(sentido_giro="izquierda", angulo_final=None):
         )
     )
 
-    x_lim = LARGO_CILINDRO * 2.8
-    y_lim = max(ancho_util * 1.4, diametro * 4.0)
-    z_lim = altura_total * 1.4 + diametro * 2.0
+    x_max = max(abs(v[:, 0].min()), abs(v[:, 0].max()))
+    y_max = max(abs(v[:, 1].min()), abs(v[:, 1].max()))
+    z_min = float(v[:, 2].min())
+    z_max = float(v[:, 2].max())
+
+    x_lim = x_max * CAM_ENCUADRE_FACTOR
+    y_lim = y_max * CAM_ENCUADRE_FACTOR
+    z_lim = max((z_max - z_min) * CAM_ENCUADRE_FACTOR, diametro * 4.0)
 
     fig.update_layout(
         width=1100,
@@ -271,7 +281,7 @@ def generar_figura(sentido_giro="izquierda", angulo_final=None):
         scene=dict(
             xaxis=dict(visible=False, range=[-x_lim, x_lim]),
             yaxis=dict(visible=False, range=[-y_lim, y_lim]),
-            zaxis=dict(visible=False, range=[0.0, z_lim]),
+            zaxis=dict(visible=False, range=[z_min - diametro, z_min - diametro + z_lim]),
             aspectmode="manual",
             aspectratio=dict(x=2.0 * x_lim, y=2.0 * y_lim, z=z_lim),
             camera=dict(
