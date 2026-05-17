@@ -13,7 +13,7 @@ La visualización se genera con Plotly y se muestra en el navegador.
 2. Selecciona parámetros de giro.
 3. La app envía esos datos al backend (`Flask`).
 4. El backend ejecuta la generación geométrica en `bouligand3D.py`.
-5. Se guarda un HTML 3D en `outputs/cilindro.html`.
+5. Se guarda un HTML 3D en `outputs/bouligand3D.html`.
 6. La interfaz carga ese HTML en un visor embebido.
 
 ## Estructura del repositorio
@@ -47,7 +47,7 @@ La visualización se genera con Plotly y se muestra en el navegador.
 
 - `outputs/`
   - Carpeta de archivos generados en ejecución.
-  - El archivo principal generado es `cilindro.html`.
+  - El archivo principal generado es `bouligand3D.html`.
 
 - `requirements.txt`
   - Dependencias Python necesarias para ejecutar.
@@ -63,7 +63,7 @@ La visualización se genera con Plotly y se muestra en el navegador.
 - `N_CAPAS`: número de capas apiladas.
 - `ANGULO_FINAL`: rotación acumulada de la última capa.
 - `SENTIDO_GIRO`: `izquierda` o `derecha`.
-- `RES_CIRCULO`: calidad de redondeo de cada cilindro (más alto = más detalle y más carga).
+- `RES_CIRCULO`: calidad de redondeo de cada cilindro.
 - `MARGEN_ENCUADRE`: margen del encuadre en la vista 3D.
 
 ## Flujo de generación (resumen técnico)
@@ -96,8 +96,6 @@ Configurar el servicio con:
 - Build Command: `pip install -r requirements.txt`
 - Start Command: `gunicorn app:app`
 
-## Notas útiles
+## Nota
 
-- Si el navegador muestra errores de WebGL, usa Chrome/Firefox o habilita aceleración por hardware.
-- Si no ves cambios tras deploy, fuerza recarga (`Ctrl + F5`).
-- Para evitar confusión de sentido visual, prueba ángulos como `120` o `180` en lugar de `360`.
+- Si el navegador muestra errores de WebGL, usar Chrome/Firefox o habilitar aceleración por hardware.
